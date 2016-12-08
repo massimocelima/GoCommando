@@ -17,22 +17,22 @@ namespace GoCommando
         /// Call this method from your <code>Main</code> method if you want to supply a custom <see cref="ICommandFactory"/> which 
         /// will be used to create command instances
         /// </summary>
-        public static void Run<TCommandFactory>() where TCommandFactory : ICommandFactory, new()
+        public static ICommand Run<TCommandFactory>(string [] args) where TCommandFactory : ICommandFactory, new()
         {
             var commandFactory = CreateCommandFactory<TCommandFactory>();
 
-            Run(commandFactory);
+            return Run(args, commandFactory);
         }
 
         /// <summary>
         /// Call this method from your <code>Main</code> method
         /// </summary>
-        public static void Run()
+        public static ICommand Run(string[] args)
         {
-            Run(null);
+            return Run(args, null);
         }
 
-        static void Run(ICommandFactory commandFactory)
+        static ICommand Run(string[] args, ICommandFactory commandFactory)
         {
             try
             {
@@ -44,26 +44,25 @@ namespace GoCommando
                     Console.WriteLine(bannerAttribute.BannerText);
                 }
 
-                InnerRun(commandFactory);
+                return InnerRun(args, commandFactory);
             }
             catch (GoCommandoException friendlyException)
             {
-                Environment.ExitCode = -1;
                 Console.WriteLine(friendlyException.Message);
                 Console.WriteLine();
                 Console.WriteLine("Invoke with -help <command> to get help for each command.");
                 Console.WriteLine();
-                Console.WriteLine("Exit code: -1");
-                Console.WriteLine();
+
             }
             catch (CustomExitCodeException customExitCodeException)
             {
-                FailAndExit(customExitCodeException, customExitCodeException.ExitCode);
+                Fail(customExitCodeException);
             }
             catch (Exception exception)
             {
-                FailAndExit(exception, -2);
+                Fail(exception);
             }
+            return null;
         }
 
         static TCommandFactory CreateCommandFactory<TCommandFactory>() where TCommandFactory : ICommandFactory, new()
@@ -78,20 +77,15 @@ namespace GoCommando
             }
         }
 
-        static void FailAndExit(Exception customExitCodeException, int exitCode)
+        static void Fail(Exception customExitCodeException)
         {
             Console.WriteLine();
             Console.Error.WriteLine(customExitCodeException);
             Console.WriteLine();
-            Console.WriteLine("Exit code: {0}", exitCode);
-            Console.WriteLine();
-
-            Environment.ExitCode = exitCode;
         }
 
-        static void InnerRun(ICommandFactory commandFactory)
+        static ICommand InnerRun(string[] args, ICommandFactory commandFactory)
         {
-            var args = Environment.GetCommandLineArgs().Skip(1).ToList();
             var settings = new Settings();
             var arguments = Parse(args, settings);
             var commandTypes = GetCommands(commandFactory, settings);
@@ -132,7 +126,7 @@ where <args> can consist of the following parameters:
 
 ", exe, command.Command);
                         }
-                        return;
+                        return null;
                     }
 
                     throw new GoCommandoException($"Unknown command: '{helpSwitch.Value}'");
@@ -150,7 +144,7 @@ Type
 
 to get help for a command.
 ");
-                return;
+                return null;
             }
 
             var commandToRun = commandTypes.FirstOrDefault(c => c.Command == arguments.Command);
@@ -186,6 +180,7 @@ to get help for a command.
             var environmentSettings = new EnvironmentSettings(appSettings, connectionStrings, environmentVariables);
 
             commandToRun.Invoke(arguments.Switches, environmentSettings);
+            return commandToRun.CommandInstance;
         }
 
         static string GetAvailableCommandsHelpText(List<CommandInvoker> commandTypes)

@@ -9,5 +9,9 @@
         /// Main run method that is invoked by GoCommando
         /// </summary>
         void Run();
+        /// <summary>
+        /// Terminate the session
+        /// </summary>
+        bool Terminate { get; }
     }
 }
